@@ -1,0 +1,156 @@
+---
+title: "Heart Diseases"
+author: "Michał Szelezin"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+library(cowplot)
+library(gridExtra)
+```
+
+## `Plik źródłowy`
+
+[Link do Kaggle.com](https://www.kaggle.com/datasets/neurocipher/heartdisease?resource=download)
+<br><br>
+
+# `1.Wstęp`
+
+Obiektem dzisiejszej analizy, będzie plik z wynikami medycznymi oraz danymi na temat stylu życia pacjentów w celu oszacowania ryzyka chorób serca. Dzięki tym informacjom postaram się uzyskać odpowiedzi na następujące pytania:
+
+1. Czy istnieje zależność pomiędzy wiekiem oraz płcią pacjentów, a prawdopodobieństwem wystąpienia choroby serca?
+2. Jaki rodzaj badania lub zestaw badań jest niezbędny w stwierdzeniu pozytywnego wyniku choroby serca?
+3. Czy jesteśmy w stanie oszacować szansę wystąpienia choroby serca u przyszłych pacjentów na podstawie aktualnych wyników badań?
+<br><br>
+
+# `2.Omówienie danych`
+
+Plik źródłowy zawiera dane dla następujących kategorii:
+
+- **Wiek** - *Age* 
+- **Płeć** - *Sex* 
+  - 1 - mężczyzna
+  - 0 - kobieta
+- **Typ bólu serca** - *Chest.pain.type*
+  - 1 - typowy dławicowy
+  - 2 - atypowy dławicowy
+  - 3 - ból nieprzypominający dławicy
+  - 4 - bez bólu
+- **Ciśnienie tętnicze w spoczynku** - *BP*
+- **Poziom cholesterolu** - *Cholesterol*
+- **Poziom glukozy na czczo** - *FBS.over.120*
+  - 1 - wysoki
+  - 0 - niski
+- **Wynik EKG w spoczynku** - *EKG.results*
+  - 0 - prawidłowy zapis
+  - 2 - nieprawidłowości w zapisie
+- **Maksymalne tętno** - *Max.HR*
+- **Dławica piersiowa wysiłkowa** - *Exercise.angina*
+  - 1 - występuje
+  - 0 - brak występowania
+- **Wartość obniżenie odcinka ST** - *ST.depression*
+  - 0.0 - brak obniżenie
+  - 01.-1.0 - niewielkie obniżenie
+  - \>1.0 - istotne obniżenie
+- **Kategoria nachylenia odcinka ST** - *Slope.of.ST*
+  - 1 - ST rosnący
+  - 2 - ST płaski
+  - 3 - ST opadający
+- **Liczba głównych naczyń wieńcowych** - *Number.of.vessels.fluro*
+  - 0 - brak widocznych zwężeń
+  - 1 - jedno naczynie z widoczną zmianą
+  - 2 - dwa naczynia z widoczną zmianą
+  - 3 - trzy naczynia z widoczną zmianą
+- **Wynik testu obciążeniowego** - *Thallium*
+  - 3 - normalny przepływ
+  - 6 - defekt stały
+  - 7 - defekt odwracalny
+- **Istniejące choroby serca** - *Heart.Disease*
+  - Presence - istnieje choroba serca
+  - Absence - brak występowania choroby serca
+<br><br>
+```{r}
+dane<-read.csv("Heart_Disease_Prediction.csv")
+head(dane,5)
+tail(dane,5)
+```
+<br><br>
+
+# `3. Uporządkowanie danych`
+
+```{r}
+summarize(dane, across(everything(), ~sum(is.na(.))))
+dane <- arrange(dane, desc(Age))
+head(dane, 10)
+```
+
+Możemy zauważyć, że nie występują żadne braki w wierszach, a zmienne uporządkowaliśmy malejąco wg wieku pacjentów. Wartości w poszczególnych kategoriach wydają się wiarygodne dla podanego przez mnie opisu, a przydatność konkretnych zmiennych będziemy sprawdzać w trakcie dalszej pracy, wstępnie wszystkie dane mają potencjalną wartość dla naszej analizy.
+
+Przygotuję dwie nowe tabele rodzielające osoby z chorobą oraz bez choroby serca, które mogą potencjalnie się przydać w dalszych rozważaniach
+```{r}
+dane_bez <- filter(dane, Heart.Disease=="Absence")
+head(dane_bez,5)
+dane_cho <- filter(dane, Heart.Disease=="Presence")
+head(dane_cho,5)
+```
+<br><br>
+
+# `4. Wiek, płeć oraz występowanie choroby serca`
+
+```{r}
+ggplot(data = dane, aes(x = Sex, y = Age))+
+  geom_violin(fill = "darkblue", trim=FALSE)+
+  labs(
+    title="Piramida wieku pacjentów",
+    x="Płeć",
+    y="Wiek"
+  )
+ggplot(data = dane, aes(x = Sex, y = Age))+
+  geom_violin(fill = "darkgreen", trim=FALSE)+
+  facet_wrap(~ Heart.Disease)+
+  labs(
+    title="Występowanie chorób serca w piramidzie wieku",
+    x="Płeć",
+    y="Wiek"
+  )
+
+```
+
+Z wykresu jesteśmy w stanie wywnioskować, że istnieje pewna zależność między wiekiem, a częstotliwością występowania, czyli:
+
+- wraz z wiekiem rośnie prawdopodobieństwo na rozwinięcie choroby serca 
+- po osiągnięciu wieku 60 lat drastycznie spada prawdopodobieństwo rozwinięcie choroby jeśli wcześniej nie wystąpiła
+- na okolice wieku 50 lat przypada punkt krytyczny przed nagłym wzrostem ryzyka rozwinięcia choroby serca
+
+Korelacja występuje tylko pomiędzy dwiema zmiennymi liniowymi, nie kategorycznymi, więc wszystkie te wnioski są jedynie zależnościa, a nie korelacją, ze względu na charakter badanych zmiennych. 
+<br><br>
+
+# `5. Histogramy dla zmiennych numerycznych`
+```{r}
+h1 <- ggplot(dane, aes(x=Age)) +geom_histogram(bins=40) +labs(title="Histogram wieku",x="wiek",y="wartość")
+h2 <- ggplot(dane, aes(x=BP)) +geom_histogram(bins=50) +labs(title="Histogram ciśnienia",x="ciśnienie tętnicze",y="wartość")
+h3 <- ggplot(dane, aes(x=Cholesterol)) +geom_histogram(bins=50) +labs(title="Histogram cholesterolu",x="cholesterol",y="wartość")
+h4 <- ggplot(dane, aes(x=Max.HR)) +geom_histogram(bins=50) +labs(title="Histogram maksymalnego tętna",x="tętno",y="wartość")
+h5 <- ggplot(dane, aes(x=ST.depression)) +geom_histogram(bins=50) +labs(title="Histogram nachylenia ST",x="wartość nachylenia",y="wartość")
+
+grid.arrange(h1,h2,h3,h4,h5, ncol=2)
+```
+
+
+# `. Statystyki opisowe korelacji między badaniami`
+
+```{r}
+ggplot(dane, aes(x=Cholesterol, y=BP))+
+  geom_point()+
+  geom_smooth(method = "lm", se=TRUE, color="blue") +
+  labs(
+    title="Związek między cholesterolem, a ciśnieniem",
+    x="Cholesterol",
+    y="Ciśnienie tętnicze"
+  )
+```
+
