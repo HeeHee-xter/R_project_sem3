@@ -1,7 +1,9 @@
 ---
 title: "Heart Diseases"
 author: "Michał Szelezin"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -11,6 +13,7 @@ library(ggplot2)
 library(patchwork)
 library(cowplot)
 library(gridExtra)
+library(Hmisc)
 ```
 
 ## `Plik źródłowy`
@@ -23,8 +26,8 @@ library(gridExtra)
 Obiektem dzisiejszej analizy, będzie plik z wynikami medycznymi oraz danymi na temat stylu życia pacjentów w celu oszacowania ryzyka chorób serca. Dzięki tym informacjom postaram się uzyskać odpowiedzi na następujące pytania:
 
 1. Czy istnieje zależność pomiędzy wiekiem oraz płcią pacjentów, a prawdopodobieństwem wystąpienia choroby serca?
-2. Jaki rodzaj badania lub zestaw badań jest niezbędny w stwierdzeniu pozytywnego wyniku choroby serca?
-3. Czy jesteśmy w stanie oszacować szansę wystąpienia choroby serca u przyszłych pacjentów na podstawie aktualnych wyników badań?
+2. Które badania mają największą korelacje między konkretnymi wynikami a istnieniem choroby serca?
+3. Czy istnieje korelacja pomiędzy konkretnymi badaniami?
 <br><br>
 
 # `2.Omówienie danych`
@@ -47,7 +50,8 @@ Plik źródłowy zawiera dane dla następujących kategorii:
   - 0 - niski
 - **Wynik EKG w spoczynku** - *EKG.results*
   - 0 - prawidłowy zapis
-  - 2 - nieprawidłowości w zapisie
+  - 1 - nieprawidłowości w zapisie typu przerost
+  - 2 - inne nieprawidłowości w zapisie
 - **Maksymalne tętno** - *Max.HR*
 - **Dławica piersiowa wysiłkowa** - *Exercise.angina*
   - 1 - występuje
@@ -65,7 +69,7 @@ Plik źródłowy zawiera dane dla następujących kategorii:
   - 1 - jedno naczynie z widoczną zmianą
   - 2 - dwa naczynia z widoczną zmianą
   - 3 - trzy naczynia z widoczną zmianą
-- **Wynik testu obciążeniowego** - *Thallium*
+- **Wynik testu obciążeniowego(scyntygrafia serca)** - *Thallium*
   - 3 - normalny przepływ
   - 6 - defekt stały
   - 7 - defekt odwracalny
@@ -83,7 +87,7 @@ tail(dane,5)
 # `3. Uporządkowanie danych`
 
 ```{r}
-summarize(dane, across(everything(), ~sum(is.na(.))))
+summarise(dane, across(everything(), ~sum(is.na(.))))
 dane <- arrange(dane, desc(Age))
 head(dane, 10)
 ```
@@ -114,7 +118,7 @@ ggplot(data = dane, aes(x = Sex, y = Age))+
   facet_wrap(~ Heart.Disease)+
   labs(
     title="Występowanie chorób serca w piramidzie wieku",
-    x="Płeć",
+    x="Płeć(0-kobieta, 1-mężczyzna)",
     y="Wiek"
   )
 
@@ -132,25 +136,287 @@ Korelacja występuje tylko pomiędzy dwiema zmiennymi liniowymi, nie kategoryczn
 # `5. Histogramy dla zmiennych numerycznych`
 ```{r}
 h1 <- ggplot(dane, aes(x=Age)) +geom_histogram(bins=40) +labs(title="Histogram wieku",x="wiek",y="wartość")
+
 h2 <- ggplot(dane, aes(x=BP)) +geom_histogram(bins=50) +labs(title="Histogram ciśnienia",x="ciśnienie tętnicze",y="wartość")
+
 h3 <- ggplot(dane, aes(x=Cholesterol)) +geom_histogram(bins=50) +labs(title="Histogram cholesterolu",x="cholesterol",y="wartość")
+
 h4 <- ggplot(dane, aes(x=Max.HR)) +geom_histogram(bins=50) +labs(title="Histogram maksymalnego tętna",x="tętno",y="wartość")
+
 h5 <- ggplot(dane, aes(x=ST.depression)) +geom_histogram(bins=50) +labs(title="Histogram nachylenia ST",x="wartość nachylenia",y="wartość")
 
 grid.arrange(h1,h2,h3,h4,h5, ncol=2)
 ```
+<br><br>
 
-
-# `. Statystyki opisowe korelacji między badaniami`
+# `6. Wykresy dla zmiennych kategorycznych`
 
 ```{r}
-ggplot(dane, aes(x=Cholesterol, y=BP))+
+b1 <- ggplot(dane, aes(x=factor(Sex)))+geom_bar(fill="darkorange")+labs(title="Płeć",x="",y="ilość")+scale_x_discrete(labels=c("0"="kobieta","1"="mężczyzna"))
+
+b2 <- ggplot(dane, aes(x=factor(Chest.pain.type)))+geom_bar(fill="steelblue")+labs(title="Typ bólu w klatce piersiowej",x="",y="ilość")+scale_x_discrete(labels=c("1"="typowy","2"="atypowy","3"="niedławicowy","4"="bez bólu"))
+
+b3 <- ggplot(dane, aes(x=factor(Exercise.angina)))+geom_bar(fill="forestgreen")+labs(title="Dławica piersiowa wysiłkowa",x="",y="ilość")+scale_x_discrete(labels=c("0"="nie występuje","1"="występuje"))
+
+b4 <- ggplot(dane, aes(x=factor(Slope.of.ST)))+geom_bar(fill="darkslategray")+labs(title="Kategoria nachylenia ST",x="",y="ilość")+scale_x_discrete(labels=c("1"="rosnący","2"="płaski","3"="opadający"))
+
+b5 <- ggplot(dane, aes(x=factor(Number.of.vessels.fluro)))+geom_bar(fill="lightblue")+labs(title="Liczba głównych naczyń wieńcowych",x="",y="ilość")+scale_x_discrete(labels=c("0"="brak zwężeń","1"="1 naczynie\nz widoczną\nzmianą","2"="2 naczynia\nz widoczną\nzmianą","3"="3 naczynia\nz widoczną\nzmianą"))
+
+b6 <- ggplot(dane, aes(x=factor(Thallium)))+geom_bar(fill="brown")+labs(title="wynik testu obciążeniowego",x="",y="ilość")+scale_x_discrete(labels=c("3"="normalny przepływ","6"="defekt stały","7"="defekt odwracalny"))
+
+b7 <- ggplot(dane, aes(x=factor(EKG.results)))+geom_bar(fill="mediumpurple")+labs(title="Wynik EKG w spoczynku",x="",y="ilość")+scale_x_discrete(labels=c("0"="prawidłowy","1"="nieprawidłowości\nprzerost","2"="inne\nnieprawidłowości"))
+
+b8 <- ggplot(dane, aes(x=factor(FBS.over.120)))+geom_bar(fill="pink")+labs(title="Poziom glukozy na czczo",x="",y="ilość")+scale_x_discrete(labels=c("0"="niski","1"="wysoki"))
+
+grid.arrange(b1,b2,b3,b4,ncol=2)
+grid.arrange(b5,b6,b7,b8,ncol=2)
+```
+<br><br>
+
+# `7. Porównanie zmiennych numerycznych względem choroby serca`
+
+```{r}
+g1<-ggplot(dane, aes(x=Heart.Disease,y=Max.HR))+
+  geom_boxplot(fill="tomato")+
+  labs(
+    title="Tętno, a choroba",
+    x="Występowanie choroby",
+    y="Maksymalne tętno"
+  )+
+  scale_x_discrete(labels=c("Absence"="Brak choroby","Presence"="Występowanie choroby"))
+
+g2<-ggplot(dane, aes(x=Heart.Disease,y=Age))+
+  geom_boxplot(fill="skyblue")+
+  labs(
+    title="Wiek, a choroba",
+    x="Występowanie choroby",
+    y="Wiek"
+  )+
+  scale_x_discrete(labels=c("Absence"="Brak choroby","Presence"="Występowanie choroby"))
+
+g3<-ggplot(dane, aes(x=Heart.Disease,y=BP))+
+  geom_boxplot(fill="darkslategray")+
+  labs(
+    title="Ciśnienie, a choroba",
+    x="Występowanie choroby",
+    y="Ciśnienie tętnicze w spoczynku"
+  )+
+  scale_x_discrete(labels=c("Absence"="Brak choroby","Presence"="Występowanie choroby"))
+
+g4<-ggplot(dane, aes(x=Heart.Disease,y=Cholesterol))+
+  geom_boxplot(fill="mediumpurple")+
+  labs(
+    title="Cholesterol, a choroba",
+    x="Występowanie choroby",
+    y="Poziom cholesterolu"
+  )+
+  scale_x_discrete(labels=c("Absence"="Brak choroby","Presence"="Występowanie choroby"))
+
+g5<-ggplot(dane, aes(x=Heart.Disease,y=ST.depression))+
+  geom_boxplot(fill="firebrick")+
+  labs(
+    title="Nachylenie ST, a choroba",
+    x="Występowanie choroby",
+    y="Wartość nachylenia ST"
+  )+
+  scale_x_discrete(labels=c("Absence"="Brak choroby","Presence"="Występowanie choroby"))
+
+grid.arrange(g1,g2, ncol=2)
+grid.arrange(g3,g4, ncol=2)
+g5
+```
+<br><br>
+
+# `8. Test Wilcoxa dla zmiennych numerycznych`
+
+```{r}
+t1 <- wilcox.test(Max.HR ~Heart.Disease, dane)
+t2 <- wilcox.test(Age ~Heart.Disease, dane)
+t3 <- wilcox.test(BP ~Heart.Disease, dane)
+t4 <- wilcox.test(Cholesterol ~Heart.Disease, dane)
+t5 <- wilcox.test(ST.depression ~Heart.Disease, dane)
+tabela_testow <- data.frame(
+  zmienna = c("Tętno","Wiek","Ciśnienie","Cholesterol","Nachylenie ST"),
+  p_values=c(
+    t1$p.value,
+    t2$p.value,
+    t3$p.value,
+    t4$p.value,
+    t5$p.value
+  )
+)
+tabela_testow
+```
+Wyniki testów wskazują na zdecydowany wpływ wartości nachylenia ST oraz maksymalnego tętna na prawdopodobieństwo wystąpienia choroby serca. Również istotnymi statystykami w diagnozie jest wiek pacjenta, oraz poziom cholesterolu. Natomiast mediana i wynik testu Wilcoxa (p > 0.03) informują o braku korelacji między ciśnieniem tętniczym a chorobą serca.
+<br><br>
+
+# `9. Porównanie zmiennych kategorycznych względem choroby serca`
+
+```{r}
+s1 <- ggplot(dane, aes(x=factor(Sex),fill=Heart.Disease))+geom_bar(position="stack")+labs(title="Płeć",x="",y="ilość")+scale_x_discrete(labels=c("0"="kobieta","1"="mężczyzna"))+
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+s2 <- ggplot(dane, aes(x=factor(Chest.pain.type),fill=Heart.Disease))+geom_bar(position="stack")+labs(title="Typ bólu w klatce piersiowej",x="",y="ilość")+scale_x_discrete(labels=c("1"="typowy","2"="atypowy","3"="niedławicowy","4"="bez bólu"))+
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+s3 <- ggplot(dane, aes(x=factor(Exercise.angina),fill=Heart.Disease))+geom_bar(position="stack")+labs(title="Dławica piersiowa wysiłkowa",x="",y="ilość")+scale_x_discrete(labels=c("0"="nie występuje","1"="występuje"))+
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+s4 <- ggplot(dane, aes(x=factor(Slope.of.ST),fill=Heart.Disease))+geom_bar(position="stack")+labs(title="Kategoria nachylenia ST",x="",y="ilość")+scale_x_discrete(labels=c("1"="rosnący","2"="płaski","3"="opadający"))+
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+s5 <- ggplot(dane, aes(x=factor(Number.of.vessels.fluro),fill=Heart.Disease))+geom_bar(position="stack")+labs(title="Liczba głównych naczyń wieńcowych",x="",y="ilość")+scale_x_discrete(labels=c("0"="brak zwężeń","1"="1 naczynie z widoczną zmianą","2"="2 naczynia z widoczną zmianą","3"="3 naczynia z widoczną zmianą"))+
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+s6 <- ggplot(dane, aes(x=factor(Thallium),fill=Heart.Disease))+geom_bar(position="stack")+labs(title="wynik testu obciążeniowego",x="",y="ilość")+scale_x_discrete(labels=c("3"="normalny przepływ","6"="defekt stały","7"="defekt odwracalny"))+
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+s7 <- ggplot(dane, aes(x=factor(EKG.results),fill=Heart.Disease))+geom_bar(position="stack")+labs(title="Wynik EKG w spoczynku",x="",y="ilość")+scale_x_discrete(labels=c("0"="prawidłowy","1"="nieprawidłowości\nprzerost","2"="inne\nnieprawidłowości"))+
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+s8 <- ggplot(dane, aes(x=factor(FBS.over.120),fill=Heart.Disease))+geom_bar(position="stack")+labs(title="Poziom glukozy na czczo",x="",y="ilość")+scale_x_discrete(labels=c("0"="niski","1"="wysoki"))+
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+grid.arrange(s1,s2,s3,s4,ncol=2)
+grid.arrange(s5,s6,s7,s8,ncol=2)
+```
+<br><br>
+
+# `10. Test Spearmana o korelacji między badaniami`
+```{r}
+zmienne <-dane[,c("Max.HR","Age","BP","Cholesterol","ST.depression")]
+wynik<-rcorr(as.matrix(zmienne),type="spearman")
+wynik
+```
+Na podstawie wyników testu Spearmana jesteśmy w stanie stwierdzić, że istotnie statystycznie (p<0.05) są wyniki dla par:
+
+- **Tętno** i **Wiek** - p = -0.40 (umiarkowanie silna ujemna korelacja)
+- **Tętno** i **Nachylenie ST** - p = -0.42 (umiarkowanie silna ujemna korelacja)
+- **Wiek** i **Ciśnienie** - p = 0.28 (umiarkowanie silna dodatnia korelacja)
+- **Wiek** i **Cholesterol** - p = 0.21 (słaba dodatnia korelacja)
+- **Wiek** i **Nachylenie ST** - p = 0.26 (słaba dodatnia korelacja)
+- **Ciśnienie** i **Cholesterol** - p = 0.19 (słaba dodatnia korelacja)
+- **Ciśnienie** i **Nachylenie ST** - p = 0.18 (słaba dodatnia korelacja)
+
+```{r}
+
+Sp1 <- ggplot(dane, aes(x=Max.HR, y=Age))+
   geom_point()+
-  geom_smooth(method = "lm", se=TRUE, color="blue") +
+  geom_smooth(method = "loess", se=TRUE, color="salmon") +
+  labs(
+    title="Związek między maksymalnym tętnem, a wiekiem",
+    x="Tętno",
+    y="Wiek"
+  )
+
+Sp2 <- ggplot(dane, aes(x=Max.HR, y=ST.depression))+
+  geom_point()+
+  geom_smooth(method = "loess", se=TRUE, color="darkorange") +
+  labs(
+    title="Związek między maksymalnym tętnem, a wartością nachylenia ST",
+    x="Tętno",
+    y="Nachylenie ST"
+  )
+
+Sp3 <- ggplot(dane, aes(x=Age, y=BP))+
+  geom_point()+
+  geom_smooth(method = "loess", se=TRUE, color="skyblue") +
+  labs(
+    title="Związek między wiekiem, a ciśnieniem tętniczym",
+    x="Wiek",
+    y="Ciśnienie"
+  )
+
+Sp4 <- ggplot(dane, aes(x=Age, y=Cholesterol))+
+  geom_point()+
+  geom_smooth(method = "loess", se=TRUE, color="forestgreen") +
+  labs(
+    title="Związek między wiekiem, a cholesterolem",
+    x="Wiek",
+    y="Cholesterol"
+  )
+
+Sp5 <- ggplot(dane, aes(x=Age, y=ST.depression))+
+  geom_point()+
+  geom_smooth(method = "loess", se=TRUE, color="darkslategray") +
+  labs(
+    title="Związek między wiekiem, a wartością nachylenia ST",
+    x="Wiek",
+    y="Nachylenie ST"
+  )
+
+Sp6 <- ggplot(dane, aes(x=Cholesterol, y=BP))+
+  geom_point()+
+  geom_smooth(method = "loess", se=TRUE, color="steelblue") +
   labs(
     title="Związek między cholesterolem, a ciśnieniem",
     x="Cholesterol",
     y="Ciśnienie tętnicze"
   )
-```
 
+Sp7 <- ggplot(dane, aes(x=BP, y=ST.depression))+
+  geom_point()+
+  geom_smooth(method = "loess", se=TRUE, color="royalblue") +
+  labs(
+    title="Związek między ciśnieniem tętniczym, a wartością nachylenia ST",
+    x="Ciśnienie",
+    y="Nachylenie ST"
+  )
+Sp1
+Sp2
+Sp3
+Sp4
+Sp5
+Sp6
+Sp7
+```
+<br><br>
+
+# `11. Podsumowanie`
+
+Na początku badania zadaliśmy sobie następujące pytania, na które otrzymaliśmy zatysfakcjonujące odpowiedzi:
+
+<br><br>
+1. *"Czy istnieje zależność pomiędzy wiekiem oraz płcią pacjentów, a prawdopodobieństwem wystąpienia choroby serca?"*
+
+  - **Tak, istnieje znaczące zwiększenie rozwinięcia choroby serca w okolicach wieku 50 lat oraz istnieje zależność pomiędzy płcią, a chorobą (mężczyzni są na nią bardziej podatni)**
+  
+<br><br>
+2.*"Które badania mają największą korelacje między konkretnymi wynikami a istnieniem choroby serca?"*
+
+  -**Zdecydowanie najważniejszymi badaniami w celu rozstrzygnięcie choroby serca jest:**
+  
+    -zbadania maksymalnego tętna (niższe = większe ryzyko)
+    -wykonania badania EKG w celu zmierzenia wartości i kategorii nachylenia ST  (wyższa wartość+opadający = większe ryzyko)
+    
+  **niewiele mniej istotna też jest informacja o:**
+  
+    -wieku (starszy = większe ryzyko)
+    -poziomie cholesterolu pacjenta (wyższy = większe ryzyko)
+
+<br><br>
+3. *"Czy istnieje korelacja pomiędzy konkretnymi badaniami?"*
+
+  -**Istnieje umiarkowanie silna ujemna/dodatnia korelacja między:**
+  
+    -maksymalnym tętnem i wiekiem (p = -0.40) - im starszy pacjent tym wyższe tętno
+    -maksymalnym tętnem i wartością nachylenia ST (p = -0.42) - im wyższe tętno tym mniejsze nachylenie ST
+    -wiekiem i ciśnieniem tętniczym (p = 0.28) - im starszy pacjent tym wyższe ciśnienie
+
+<br><br>
